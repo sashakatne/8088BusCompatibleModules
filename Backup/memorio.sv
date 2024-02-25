@@ -1,22 +1,18 @@
-module MemoryOrIOModule #(
-    parameter ADDR_WIDTH = 20,  // Width of the 8088 address bus
-    parameter DATA_WIDTH = 8,   // Width of the 8088 data bus
-    parameter BASE_ADDR = 0,    // Base address for this module
-    parameter NUM_UNITS = 512 * 1024  // Number of addressable units
-)(
-    input wire CLK,
-    input wire RESET,
-    input wire CS, // Chip Select. Active high
-    input wire OE, // Output Enable. Active low
-    input wire WR, // Write Enable. Active low
-    input wire [ADDR_WIDTH-1:0] Address,
-    inout wire [DATA_WIDTH-1:0] Data
-);
+module MemoryOrIOModule1 (CLK, RESET, CS, OE, WR, IOM, Address, Data);
 
-    // Define the effective address width based on the number of addressable units
-    localparam EFF_ADDR_WIDTH = $clog2(NUM_UNITS);
+    parameter ADDR_WIDTH = 20;  // Width of the 8088 address bus
+    parameter DATA_WIDTH = 8;   // Width of the 8088 data bus
+    parameter MEM_SIZE = 512;   // Size of memory in KiB
 
-    // State definitions
+    input wire CLK;
+    input wire RESET;
+    input wire CS; // Chip Select. Active high
+    input wire OE; // Output Enable. Active low
+    input wire WR; // Write Enable. Active low
+    input wire IOM; // I/O or Memory. 0 for memory, 1 for I/O
+    input wire [ADDR_WIDTH-1:0] Address;
+    inout wire [DATA_WIDTH-1:0] Data;
+
     typedef enum logic [2:0] {
         IDLE  = 3'b001,
         READ  = 3'b010,
@@ -25,15 +21,12 @@ module MemoryOrIOModule #(
 
     State_t State, NextState;
 
-    // Adjust the memory array size based on the number of addressable units
-    reg [DATA_WIDTH-1:0] mem[0:NUM_UNITS-1];
+    // Memory or I/O storage
+    reg [DATA_WIDTH-1:0] mem[0:(MEM_SIZE*1024)-1];
 
     // Internal signals for data bus handling
     reg [DATA_WIDTH-1:0] data_out;
     reg data_out_valid;
-
-    // Calculate the index for the internal memory array
-    wire [EFF_ADDR_WIDTH-1:0] mem_index = Address - BASE_ADDR;
 
     // First procedural block to model sequential logic
     always_ff @(posedge CLK) begin
@@ -63,14 +56,14 @@ module MemoryOrIOModule #(
             end
             READ: begin
                 if (CS && !OE) begin
-                    data_out = mem[mem_index];  // Prepare data to be output on the bus
+                    data_out = mem[Address];  // Prepare data to be output on the bus
                     data_out_valid = 1'b1;
                 end
                 NextState = IDLE;
             end
             WRITE: begin
                 if (CS && !WR) begin
-                    mem[mem_index] = Data;  // Capture the data from the bus
+                    mem[Address] = Data;  // Capture the data from the bus
                 end
                 NextState = IDLE;
             end

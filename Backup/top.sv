@@ -29,29 +29,21 @@ logic memory1_cs;
 logic io_device0_cs;
 logic io_device1_cs;
 
-// Define the number of addressable units for memory modules
-localparam NUM_UNITS_MEMORY = 512 * 1024;
-
 // Define the base addresses and masks for I/O devices
 localparam BASE_ADDR_IO_DEVICE0 = 16'hFF00;
 localparam BASE_ADDR_IO_DEVICE1 = 16'h1C00;
 localparam ADDR_MASK_IO_DEVICE0 = 16'hFFF0; // Mask for ignoring lower 4 bits (0xF)
 localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0x1FF)
 
-// Define the number of addressable units for I/O devices
-localparam NUM_UNITS_IO_DEVICE0 = 16;  // 16 ports for I/O device 0 (0xFF00 - 0xFF0F)
-localparam NUM_UNITS_IO_DEVICE1 = 257; // 257 ports for I/O device 1 (0x1C00 - 0x1D00)
-
-
 Intel8088 P(CLK, MNMX, TEST, RESET, READY, NMI, INTR, HOLD, AD, A, HLDA, IOM, WR, RD, SSO, INTA, ALE, DTR, DEN);
 
 // Memory Modules
-MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY)) memory0 (CLK, RESET, memory0_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Lower 512 KiB
-MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY)) memory1 (CLK, RESET, memory1_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Upper 512 KiB
+MemoryOrIOModule1 #(.MEM_SIZE(512)) memory0 (CLK, RESET, memory0_cs, RD, WR, IOM, {1'b0,Address[18:0]}, Data); // Lower 512 KiB
+MemoryOrIOModule1 #(.MEM_SIZE(512)) memory1 (CLK, RESET, memory1_cs, RD, WR, IOM, {1'b0,Address[18:0]}, Data); // Upper 512 KiB
 
 // I/O Devices
-MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE0), .NUM_UNITS(NUM_UNITS_IO_DEVICE0)) io_device0 (CLK, RESET, io_device0_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
-MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1)) io_device1 (CLK, RESET, io_device1_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
+MemoryOrIOModule1 #(.MEM_SIZE(512)) io_device0 (CLK, RESET, io_device0_cs, RD, WR, IOM, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
+MemoryOrIOModule1 #(.MEM_SIZE(512)) io_device1 (CLK, RESET, io_device1_cs, RD, WR, IOM, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
 
 // 8282 Latch to latch bus address
 always_latch
