@@ -42,17 +42,16 @@ localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0
 localparam NUM_UNITS_IO_DEVICE0 = 16;  // 16 ports for I/O device 0 (0xFF00 - 0xFF0F)
 localparam NUM_UNITS_IO_DEVICE1 = 257; // 257 ports for I/O device 1 (0x1C00 - 0x1D00)
 
+
 Intel8088 P(CLK, MNMX, TEST, RESET, READY, NMI, INTR, HOLD, AD, A, HLDA, IOM, WR, RD, SSO, INTA, ALE, DTR, DEN);
 
 // Memory Modules
-// MSB masked out to select memory module
-MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY), .INIT_FILE("memory0_init.mem")) memory0 (CLK, RESET, memory0_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Lower 512 KiB (0x00000 - 0x7FFFF)
-MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY), .INIT_FILE("memory1_init.mem")) memory1 (CLK, RESET, memory1_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Upper 512 KiB (0x80000 - 0xFFFFF)
+MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY)) memory0 (CLK, RESET, memory0_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Lower 512 KiB
+MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY)) memory1 (CLK, RESET, memory1_cs, RD, WR, {1'b0,Address[18:0]}, Data); // Upper 512 KiB
 
 // I/O Devices
-// Most significant 4 bits masked out to select I/O device
-MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE0), .NUM_UNITS(NUM_UNITS_IO_DEVICE0), .INIT_FILE("io_device0_init.mem")) io_device0 (CLK, RESET, io_device0_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
-MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1), .INIT_FILE("io_device1_init.mem")) io_device1 (CLK, RESET, io_device1_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
+MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE0), .NUM_UNITS(NUM_UNITS_IO_DEVICE0)) io_device0 (CLK, RESET, io_device0_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
+MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1)) io_device1 (CLK, RESET, io_device1_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
 
 // 8282 Latch to latch bus address
 always_latch
@@ -65,13 +64,15 @@ end
 assign Data =  (DTR & ~DEN) ? AD   : 'z;
 assign AD   = (~DTR & ~DEN) ? Data : 'z;
 
-// Chip select logic for memory modules
-assign memory0_cs = ~IOM & ~Address[19];
-assign memory1_cs = ~IOM & Address[19];
+always_comb begin
+    // CS for memory modules
+    memory0_cs = ~IOM && (Address[19] == 0);
+    memory1_cs = ~IOM && (Address[19] == 1);
 
-// Chip select logic for I/O devices
-assign io_device0_cs = IOM & ((Address & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
-assign io_device1_cs = IOM & ((Address & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
+    // CS logic for I/O devices using base address and mask
+    io_device0_cs = IOM && ((Address & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
+    io_device1_cs = IOM && ((Address & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
+end
 
 always #50 CLK = ~CLK;
 
@@ -84,7 +85,7 @@ begin
     repeat (5) @(posedge CLK);
     RESET = '0;
 
-    repeat(1000) @(posedge CLK);
+    repeat(10000) @(posedge CLK);
     $finish();
 end
 
