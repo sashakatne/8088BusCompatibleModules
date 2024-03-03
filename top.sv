@@ -40,7 +40,7 @@ localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0
 
 // Define the number of addressable units for I/O devices
 localparam NUM_UNITS_IO_DEVICE0 = 16;  // 16 ports for I/O device 0 (0xFF00 - 0xFF0F)
-localparam NUM_UNITS_IO_DEVICE1 = 257; // 257 ports for I/O device 1 (0x1C00 - 0x1D00)
+localparam NUM_UNITS_IO_DEVICE1 = 512; // 512 ports for I/O device 1 (0x1C00 - 0x1DFF)
 
 Intel8088 P(CLK, MNMX, TEST, RESET, READY, NMI, INTR, HOLD, AD, A, HLDA, IOM, WR, RD, SSO, INTA, ALE, DTR, DEN);
 
@@ -52,7 +52,7 @@ MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY), .INIT_FILE("memory1_init.mem"))
 // I/O Devices
 // Most significant 4 bits masked out to select I/O device
 MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE0), .NUM_UNITS(NUM_UNITS_IO_DEVICE0), .INIT_FILE("io_device0_init.mem")) io_device0 (CLK, RESET, io_device0_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
-MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1), .INIT_FILE("io_device1_init.mem")) io_device1 (CLK, RESET, io_device1_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
+MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1), .INIT_FILE("io_device1_init.mem")) io_device1 (CLK, RESET, io_device1_cs, RD, WR, {4'b0,Address[15:0]}, Data); // 512 Ports (0x1C00 - 0x1DFF)
 
 // 8282 Latch to latch bus address
 always_latch
