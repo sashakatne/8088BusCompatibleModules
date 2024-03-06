@@ -10,4 +10,4 @@ def generate_memory_file(filename, num_units):
 generate_memory_file("memory0_init.mem", 512*1024)
 generate_memory_file("memory1_init.mem", 512*1024)
 generate_memory_file("io_device0_init.mem", 16)
-generate_memory_file("io_device1_init.mem", 257)
+generate_memory_file("io_device1_init.mem", 512)
