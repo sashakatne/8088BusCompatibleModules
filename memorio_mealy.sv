@@ -2,7 +2,6 @@ module MemoryOrIOModule (CLK, RESET, ALE, CS, RD, WR, ADDRESS, DATA);
     
     parameter ADDR_WIDTH = 19;
     parameter DATA_WIDTH = 8;
-    parameter NUM_UNITS = (1 << ADDR_WIDTH); // Adjust based on memory or I/O size
     parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
 
     input wire CLK;
@@ -17,7 +16,7 @@ module MemoryOrIOModule (CLK, RESET, ALE, CS, RD, WR, ADDRESS, DATA);
     // Control signals between ControlSequencer and Datapath
     wire LA, OE, WE;
 
-    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .NUM_UNITS(NUM_UNITS), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
+    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     ControlSequencer controlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
 endmodule
@@ -26,7 +25,7 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     
     parameter ADDR_WIDTH = 19;
     parameter DATA_WIDTH = 8;
-    parameter NUM_UNITS = (1 << ADDR_WIDTH);
+    localparam NUM_UNITS = (1 << ADDR_WIDTH);
     parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
 
     input wire CLK;
