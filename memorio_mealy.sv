@@ -15,14 +15,14 @@ module MemoryOrIOModule (CLK, RESET, ALE, CS, RD, WR, ADDRESS, DATA);
     inout wire [DATA_WIDTH-1:0] DATA;
 
     // Control signals between ControlSequencer and Datapath
-    wire LA, OE, WE, RE;
+    wire LA, OE, WE;
 
-    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .NUM_UNITS(NUM_UNITS), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE, RE);
-    ControlSequencer controlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE, RE);
+    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .NUM_UNITS(NUM_UNITS), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
+    ControlSequencer controlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
 endmodule
 
-module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE, RE);
+module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     
     parameter ADDR_WIDTH = 19;
     parameter DATA_WIDTH = 8;
@@ -33,17 +33,15 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE, RE);
     input wire RESET;
     input wire [ADDR_WIDTH-1:0] ADDRESS;
     inout wire [DATA_WIDTH-1:0] DATA;
-    input wire LA; // From ControlSequencer
-    input wire OE; // From ControlSequencer
-    input wire WE; // From ControlSequencer
-    input wire RE; // From ControlSequencer
+    input wire LA; // Load Address. From ControlSequencer
+    input wire OE; // Output Enable. From ControlSequencer
+    input wire WE; // Write Enable. From ControlSequencer
     
-    reg [DATA_WIDTH-1:0] DOUT;
-    reg [ADDR_WIDTH-1:0] MEM_INDEX;
+    reg [ADDR_WIDTH-1:0] ADDR_REG;
     reg [DATA_WIDTH-1:0] MEM[NUM_UNITS-1:0];
 
     // Tristate buffer control for bidirectional Data bus
-    assign DATA = OE ? DOUT : {DATA_WIDTH{1'bz}};
+    assign DATA = OE ? MEM[ADDR_REG] : {DATA_WIDTH{1'bz}};
 
     // Load initial memory contents from file
     initial begin
@@ -53,16 +51,14 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE, RE);
     // Load DOUT with data from memory and capture data from the bus and store in memory
     always_ff @(posedge CLK) begin
         if (LA)
-            MEM_INDEX <= ADDRESS;
-        if (RE)
-            DOUT <= MEM[MEM_INDEX]; // Prepare data to be output on the bus
+            ADDR_REG <= ADDRESS;
         if (WE)
-            MEM[MEM_INDEX] <= DATA; // Capture the data from the bus
+            MEM[ADDR_REG] <= DATA; // Capture the data from the bus
     end
 
 endmodule
 
-module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE, RE);
+module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
     input wire CLK;
     input wire RESET;
@@ -70,56 +66,47 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE, RE);
     input wire CS; // Chip Select. Active high
     input wire RD; // Read Enable. Active low
     input wire WR; // Write Enable. Active low
-    output reg LA; // To Datapath
-    output reg OE; // To Datapath
-    output reg WE; // To Datapath
-    output reg RE; // To Datapath
+    output reg LA; // Load Address. To Datapath
+    output reg OE; // Output Enable. To Datapath
+    output reg WE; // Write Enable. To Datapath
 
-    // State definitions using one-hot encoding.
-    typedef enum logic [3:0] {
-        IDLE  = 4'b0001,
-        LOAD_ADDR = 4'b0010,
-        READ  = 4'b0100,
-        WRITE = 4'b1000
+    typedef enum logic [2:0] {
+        INIT  = 3'b001,
+        RD_OR_WR = 3'b010,
+        WAIT  = 3'b100
     } State_t;
 
     State_t State, NextState;
 
-    // First procedural block to model sequential logic
     always_ff @(posedge CLK) begin
         if (RESET)
-            State <= IDLE;
+            State <= INIT;
         else
             State <= NextState;
     end
 
-    // Second procedural block to model output combinational logic and next state logic
     always_comb begin
         NextState = State;
-        case (State)
-            IDLE: begin
-                {LA, WE, RE, OE} = '0;
+        unique case (State)
+            INIT: begin
+                {LA, WE, OE} = '0;
                 if (CS && ALE) begin
                     LA = '1;
-                    NextState = LOAD_ADDR;
+                    NextState = RD_OR_WR;
                 end
             end
-            LOAD_ADDR: begin
+            RD_OR_WR: begin
                 if (!RD) begin
-                    RE = '1;
-                    NextState = READ;
+                    OE = '1;
+                    NextState = WAIT;
                 end
                 else if (!WR) begin
                     WE = '1;
-                    NextState = WRITE;
+                    NextState = WAIT;
                 end
             end
-            READ: begin
-                OE = '1;
-                NextState = IDLE;
-            end
-            WRITE: begin
-                NextState = IDLE;
+            WAIT: begin
+                NextState = INIT;
             end
         endcase
     end

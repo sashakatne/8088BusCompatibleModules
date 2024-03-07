@@ -29,6 +29,9 @@ logic memory1_cs;
 logic io_device0_cs;
 logic io_device1_cs;
 
+// Define address width for memory and I/O devices
+localparam IO_ADDR_WIDTH = 16;
+
 // Define the base addresses and masks for I/O devices
 localparam BASE_ADDR_IO_DEVICE0 = 16'hFF00;
 localparam BASE_ADDR_IO_DEVICE1 = 16'h1C00;
@@ -38,12 +41,12 @@ localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0
 Intel8088 P(CLK, MNMX, TEST, RESET, READY, NMI, INTR, HOLD, AD, A, HLDA, IOM, WR, RD, SSO, INTA, ALE, DTR, DEN);
 
 // Memory Modules
-MemoryOrIOModule1 #(.MEM_SIZE(512)) memory0 (CLK, RESET, memory0_cs, RD, WR, IOM, {1'b0,Address[18:0]}, Data); // Lower 512 KiB
-MemoryOrIOModule1 #(.MEM_SIZE(512)) memory1 (CLK, RESET, memory1_cs, RD, WR, IOM, {1'b0,Address[18:0]}, Data); // Upper 512 KiB
+MemoryOrIOModule #(.INIT_FILE("memory0_init.mem")) memory0 (CLK, RESET, ALE, memory0_cs, RD, WR, Address[18:0], Data); // Lower 512 KiB (0x00000 - 0x7FFFF)
+MemoryOrIOModule #(.INIT_FILE("memory1_init.mem")) memory1 (CLK, RESET, ALE, memory1_cs, RD, WR, Address[18:0], Data); // Upper 512 KiB (0x80000 - 0xFFFFF)
 
 // I/O Devices
-MemoryOrIOModule1 #(.MEM_SIZE(512)) io_device0 (CLK, RESET, io_device0_cs, RD, WR, IOM, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
-MemoryOrIOModule1 #(.MEM_SIZE(512)) io_device1 (CLK, RESET, io_device1_cs, RD, WR, IOM, {4'b0,Address[15:0]}, Data); // 257 Ports (0x1C00 - 0x1D00)
+MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device0_init.mem")) io_device0 (CLK, RESET, ALE, io_device0_cs, RD, WR, Address[15:0], Data); // 16 Ports (0xFF00 - 0xFF0F)
+MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device1_init.mem")) io_device1 (CLK, RESET, ALE, io_device1_cs, RD, WR, Address[15:0], Data); // 512 Ports (0x1C00 - 0x1DFF)
 
 // 8282 Latch to latch bus address
 always_latch
@@ -56,15 +59,13 @@ end
 assign Data =  (DTR & ~DEN) ? AD   : 'z;
 assign AD   = (~DTR & ~DEN) ? Data : 'z;
 
-always_comb begin
-    // CS for memory modules
-    memory0_cs = ~IOM && (Address[19] == 0);
-    memory1_cs = ~IOM && (Address[19] == 1);
+// Chip select logic for memory modules
+assign memory0_cs = ~IOM & ~Address[19];
+assign memory1_cs = ~IOM & Address[19];
 
-    // CS logic for I/O devices using base address and mask
-    io_device0_cs = IOM && ((Address & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
-    io_device1_cs = IOM && ((Address & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
-end
+// Chip select logic for I/O devices
+assign io_device0_cs = IOM & ((Address & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
+assign io_device1_cs = IOM & ((Address & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
 
 always #50 CLK = ~CLK;
 
@@ -77,7 +78,7 @@ begin
     repeat (5) @(posedge CLK);
     RESET = '0;
 
-    repeat(10000) @(posedge CLK);
+    repeat(1000) @(posedge CLK);
     $finish();
 end
 

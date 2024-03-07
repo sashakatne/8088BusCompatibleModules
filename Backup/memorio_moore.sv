@@ -51,7 +51,6 @@ module MemoryOrIOModule (CLK, RESET, CS, OE, WR, Address, Data);
 
     // Second procedural block to model next state combinational logic
     always_comb begin
-        // Default assignment for NextState
         NextState = State;
 
         case (State)
@@ -75,7 +74,6 @@ module MemoryOrIOModule (CLK, RESET, CS, OE, WR, Address, Data);
 
     // Third procedural block to model output combinational logic
     always_comb begin
-        // Default assignments for outputs
         data_out_valid = 1'b0;
         data_out = {DATA_WIDTH{1'b0}};
 
@@ -84,7 +82,6 @@ module MemoryOrIOModule (CLK, RESET, CS, OE, WR, Address, Data);
                 // No action required in IDLE state
             end
             READ: begin
-                // In Moore FSM, output is based on the state alone
                 data_out = mem[mem_index];  // Prepare data to be output on the bus
                 data_out_valid = 1'b1;
             end
