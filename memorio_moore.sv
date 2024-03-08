@@ -40,7 +40,7 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     reg [DATA_WIDTH-1:0] MEM[NUM_UNITS-1:0];
 
     // Tristate buffer control for bidirectional Data bus
-    assign DATA = OE ? MEM[ADDR_REG] : {DATA_WIDTH{1'bz}};
+    assign DATA = OE ? MEM[ADDR_REG] : 'z;
 
     // Load initial memory contents from file
     initial begin
@@ -69,7 +69,7 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
     output reg WE; // Write Enable. To Datapath
 
     typedef enum logic [4:0] {
-        IDLE  = 5'b00001,
+        INIT  = 5'b00001,
         LOAD_ADDR = 5'b00010,
         READ  = 5'b00100,
         WRITE = 5'b01000,
@@ -80,30 +80,30 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
     always_ff @(posedge CLK) begin
         if (RESET)
-            State <= IDLE;
+            State <= INIT;
         else
             State <= NextState;
     end
 
     always_comb begin
-        {LA, OE, WE} = '0;
         unique case (State)
+            INIT: {LA, OE, WE} = '0;
             LOAD_ADDR: LA = '1;
-            READ: OE = '1;
-            WRITE: WE = '1;
+            READ: {LA, OE} = 2'b01;
+            WRITE: {LA, WE} = 2'b01;
         endcase
     end
 
     always_comb begin
         NextState = State;
         unique case (State)
-            IDLE: if (CS && ALE) NextState = LOAD_ADDR;
+            INIT: if (CS && ALE) NextState = LOAD_ADDR;
             LOAD_ADDR: begin
                 if (!RD) NextState = READ;
                 else if (!WR) NextState = WRITE;
             end
-            READ, WAIT: NextState = IDLE;
-            WRITE: NextState = WAIT;
+            READ, WRITE: NextState = WAIT;
+            WAIT: NextState = INIT;
         endcase
     end
 

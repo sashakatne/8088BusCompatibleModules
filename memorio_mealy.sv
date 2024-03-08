@@ -40,7 +40,7 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     reg [DATA_WIDTH-1:0] MEM[NUM_UNITS-1:0];
 
     // Tristate buffer control for bidirectional Data bus
-    assign DATA = OE ? MEM[ADDR_REG] : {DATA_WIDTH{1'bz}};
+    assign DATA = OE ? MEM[ADDR_REG] : 'z;
 
     // Load initial memory contents from file
     initial begin
@@ -88,19 +88,19 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
         NextState = State;
         unique case (State)
             INIT: begin
-                {LA, WE, OE} = '0;
                 if (CS && ALE) begin
                     LA = '1;
                     NextState = RD_OR_WR;
                 end
+                else {LA, WE, OE} = '0;
             end
             RD_OR_WR: begin
                 if (!RD) begin
-                    OE = '1;
+                    {LA, OE} = 2'b01;
                     NextState = WAIT;
                 end
                 else if (!WR) begin
-                    WE = '1;
+                    {LA, WE} = 2'b01;
                     NextState = WAIT;
                 end
             end
