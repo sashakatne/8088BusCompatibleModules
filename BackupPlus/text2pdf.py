@@ -2,6 +2,11 @@ import glob
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# Step 1: Register the Monaco font
+pdfmetrics.registerFont(TTFont('Monaco', './MONACO.ttf'))
 
 def clean_text(text):
     """
@@ -33,7 +38,7 @@ def merge_text_to_pdf_from_directory(directory_path, output_pdf):
     # Create a single PDF with all text content
     c = canvas.Canvas(output_pdf, pagesize=letter)
     text_object = c.beginText(40, 750)  # Start position; adjust as needed
-    text_object.setFont("Helvetica", 10)
+    text_object.setFont("Monaco", 10)
     
     for text_content in all_text:
         lines = text_content.split('\n')
@@ -43,7 +48,7 @@ def merge_text_to_pdf_from_directory(directory_path, output_pdf):
             line = ''
             for word in words:
                 # Check if adding the next word exceeds the line width
-                if c.stringWidth(line + word, "Helvetica", 10) < 540:  # Page width - margins
+                if c.stringWidth(line + word, "Monaco", 10) < 540:  # Page width - margins
                     line += word + ' '
                 else:
                     # Draw the current line and start a new one
@@ -57,7 +62,7 @@ def merge_text_to_pdf_from_directory(directory_path, output_pdf):
                 c.drawText(text_object)
                 c.showPage()  # Create a new page
                 text_object = c.beginText(40, 750)  # Reset text object for the new page
-                text_object.setFont("Helvetica", 10)
+                text_object.setFont("Monaco", 10)
     
     c.drawText(text_object)
     c.save()

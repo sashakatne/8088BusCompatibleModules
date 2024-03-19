@@ -1,23 +1,17 @@
-module MemoryOrIOModule (CLK, RESET, ALE, CS, RD, WR, ADDRESS, DATA);
-    
+module MemoryOrIOModule (Intel8088Pins bus);
+
     parameter ADDR_WIDTH = 19;
     parameter DATA_WIDTH = 8;
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
-
-    input wire CLK;
-    input wire RESET;
-    input wire ALE; // Address Latch Enable
-    input wire CS; // Chip Select. Active high
-    input wire RD; // Read Enable. Active low
-    input wire WR; // Write Enable. Active low
-    input wire [ADDR_WIDTH-1:0] ADDRESS;
-    inout wire [DATA_WIDTH-1:0] DATA;
+    parameter BASE_ADDR = 0;
+    parameter NUM_UNITS = (1 << ADDR_WIDTH);
+    parameter DEVICE_INDEX = 0;
+    parameter INIT_FILE = "memory_init.mem";
 
     // Control signals between ControlSequencer and Datapath
     wire OE, WE, LA;
 
-    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
-    ControlSequencer controlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
+    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .BASE_ADDR(BASE_ADDR), .NUM_UNITS(NUM_UNITS), .INIT_FILE(INIT_FILE)) datapath (bus.CLK, bus.RESET, bus.Address[ADDR_WIDTH-1:0], bus.Data, LA, OE, WE);
+    ControlSequencer controlSequencer (bus.CLK, bus.RESET, bus.ALE, bus.RD, bus.WR, bus.CS[DEVICE_INDEX], LA, OE, WE);
 
 endmodule
 
@@ -25,8 +19,10 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     
     parameter ADDR_WIDTH = 19;
     parameter DATA_WIDTH = 8;
-    localparam NUM_UNITS = (1 << ADDR_WIDTH);
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
+    parameter BASE_ADDR = 0;
+    parameter NUM_UNITS = (1 << ADDR_WIDTH);
+    parameter INIT_FILE = "memory_init.mem";
+    localparam EFF_ADDR_WIDTH = $clog2(NUM_UNITS);
 
     input wire CLK;
     input wire RESET;
@@ -36,7 +32,7 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     input wire OE; // Output Enable. From ControlSequencer
     input wire WE; // Write Enable. From ControlSequencer
     
-    reg [ADDR_WIDTH-1:0] ADDR_REG;
+    reg [EFF_ADDR_WIDTH-1:0] ADDR_REG;
     reg [DATA_WIDTH-1:0] MEM[NUM_UNITS-1:0];
 
     // Tristate buffer control for bidirectional Data bus
@@ -49,21 +45,21 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
 
     always_ff @(posedge CLK) begin
         if (LA)
-            ADDR_REG <= ADDRESS;
+            ADDR_REG <= ADDRESS - BASE_ADDR;
         if (WE)
             MEM[ADDR_REG] <= DATA; // Capture the data from the bus
     end
 
 endmodule
 
-module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
+module ControlSequencer (CLK, RESET, ALE, RD, WR, CS, LA, OE, WE);
 
     input wire CLK;
     input wire RESET;
     input wire ALE; // Address Latch Enable. Active high
-    input wire CS; // Chip Select. Active high
     input wire RD; // Read Enable. Active low
     input wire WR; // Write Enable. Active low
+    input wire CS; // Chip Select. Active high
     output reg LA; // Load Address. To Datapath
     output reg OE; // Output Enable. To Datapath
     output reg WE; // Write Enable. To Datapath
@@ -86,7 +82,7 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
     end
 
     always_comb begin
-        unique case (State)
+        unique0 case (State)
             INIT: {LA, OE, WE} = '0;
             LOAD_ADDR: LA = '1;
             READ: {LA, OE} = 2'b01;
@@ -96,7 +92,7 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
     always_comb begin
         NextState = State;
-        unique case (State)
+        unique0 case (State)
             INIT: if (CS && ALE) NextState = LOAD_ADDR;
             LOAD_ADDR: begin
                 if (!RD) NextState = READ;

@@ -1,86 +1,18 @@
-module MemoryOrIOModule (CLK, RESET, CS, RD, WR, ADDRESS, DATA);
-    
-    parameter ADDR_WIDTH = 20;
-    parameter DATA_WIDTH = 8;
-    parameter NUM_UNITS = 512 * 1024; // Adjust based on memory or I/O size
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
+module MemoryOrIOModule1 (CLK, RESET, CS, OE, WR, IOM, Address, Data);
+
+    parameter ADDR_WIDTH = 20;  // Width of the 8088 address bus
+    parameter DATA_WIDTH = 8;   // Width of the 8088 data bus
+    parameter MEM_SIZE = 512;   // Size of memory in KiB
 
     input wire CLK;
     input wire RESET;
     input wire CS; // Chip Select. Active high
-    input wire RD; // Read Enable. Active low
+    input wire OE; // Output Enable. Active low
     input wire WR; // Write Enable. Active low
-    input wire [ADDR_WIDTH-1:0] ADDRESS;
-    inout wire [DATA_WIDTH-1:0] DATA;
+    input wire IOM; // I/O or Memory. 0 for memory, 1 for I/O
+    input wire [ADDR_WIDTH-1:0] Address;
+    inout wire [DATA_WIDTH-1:0] Data;
 
-    // Control signals between ControlSequencer and Datapath
-    wire OE;
-    wire WE;
-    wire RE;
-
-    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .NUM_UNITS(NUM_UNITS), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, OE, WE, RE);
-    ControlSequencer controlSequencer (CLK, RESET, CS, RD, WR, OE, WE, RE);
-
-endmodule
-
-module Datapath (CLK, RESET, ADDRESS, DATA, OE, WE, RE);
-    
-    parameter ADDR_WIDTH = 20;
-    parameter DATA_WIDTH = 8;
-    parameter NUM_UNITS = 512 * 1024;
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
-    localparam EFF_ADDR_WIDTH = $clog2(NUM_UNITS);
-
-    input wire CLK;
-    input wire RESET;
-    input wire [ADDR_WIDTH-1:0] ADDRESS;
-    inout wire [DATA_WIDTH-1:0] DATA;
-    input wire OE; // From ControlSequencer
-    input wire WE; // From ControlSequencer
-    input wire RE; // From ControlSequencer
-    
-    // Adjust the memory array size based on the number of addressable units
-    reg [EFF_ADDR_WIDTH-1:0] MEM_INDEX;
-    reg [DATA_WIDTH-1:0] MEM[NUM_UNITS-1:0];
-    reg [DATA_WIDTH-1:0] DOUT;
-
-    // Tristate buffer control for bidirectional Data bus
-    assign DATA = OE ? DOUT : {DATA_WIDTH{1'bz}};
-
-    // Address from the bus loaded into memory index
-    always_comb begin
-        MEM_INDEX = ADDRESS;
-    end
-
-    // Load initial memory contents from file
-    initial begin
-        if (INIT_FILE != "") $readmemh(INIT_FILE, MEM);
-    end
-
-    // Load DOUT with data from memory and capture data from the bus and store in memory
-    always_ff @(posedge CLK) begin
-        if (RESET)
-            DOUT <= {DATA_WIDTH{1'b0}};
-        else if (RE)
-            DOUT <= MEM[MEM_INDEX]; // Prepare data to be output on the bus
-        if (WE)
-            MEM[MEM_INDEX] <= DATA; // Capture the data from the bus
-    end
-
-endmodule
-
-module ControlSequencer (CLK, RESET, CS, RD, WR, OE, WE, RE);
-
-    input wire CLK;
-    input wire RESET;
-    input wire CS; // Chip Select. Active high
-    input wire RD; // Read Enable. Active low
-    input wire WR; // Write Enable. Active low
-    output reg OE; // To Datapath
-    output reg WE; // To Datapath
-    output reg RE; // To Datapath
-
-    // State definitions using one-hot encoding.
     typedef enum logic [2:0] {
         IDLE  = 3'b001,
         READ  = 3'b010,
@@ -89,51 +21,56 @@ module ControlSequencer (CLK, RESET, CS, RD, WR, OE, WE, RE);
 
     State_t State, NextState;
 
+    // Memory or I/O storage
+    reg [DATA_WIDTH-1:0] mem[0:(MEM_SIZE*1024)-1];
+
+    // Internal signals for data bus handling
+    reg [DATA_WIDTH-1:0] data_out;
+    reg data_out_valid;
+
     // First procedural block to model sequential logic
     always_ff @(posedge CLK) begin
-        if (RESET)
+        if (RESET) begin
             State <= IDLE;
-        else
+        end else begin
             State <= NextState;
+        end
     end
 
-    // Second procedural block to model output combinational logic
+    // Second procedural block to model next state and output combinational logic
     always_comb begin
-        case (State)
-            IDLE: begin
-                {WE, RE, OE} = '0;
-                if (CS) begin
-                    if (!RD && WR)
-                        RE = '1;
-                    else if (RD && !WR)
-                        WE = '1;
-                end
-            end
-            READ: begin
-                OE = '1;
-            end
-        endcase
-    end
-
-    // Third procedural block to model next state combinational logic
-    always_comb begin
+        // Default assignments for combinational logic
         NextState = State;
+        data_out_valid = 1'b0;
+        data_out = {DATA_WIDTH{1'b0}};
+
         case (State)
             IDLE: begin
                 if (CS) begin
-                    if (!RD && WR)
+                    if (!OE && WR) begin
                         NextState = READ;
-                    else if (RD && !WR)
+                    end else if (OE && !WR) begin
                         NextState = WRITE;
+                    end
                 end
             end
             READ: begin
+                if (CS && !OE) begin
+                    data_out = mem[Address];  // Prepare data to be output on the bus
+                    data_out_valid = 1'b1;
+                end
                 NextState = IDLE;
             end
             WRITE: begin
+                if (CS && !WR) begin
+                    mem[Address] = Data;  // Capture the data from the bus
+                end
                 NextState = IDLE;
             end
         endcase
     end
+
+    // Tristate buffer control for bidirectional Data bus
+    assign Data = data_out_valid ? data_out : {DATA_WIDTH{1'bz}};
 
 endmodule

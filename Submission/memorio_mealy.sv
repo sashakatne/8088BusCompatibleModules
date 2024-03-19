@@ -1,32 +1,24 @@
-module MemoryOrIOModule (CLK, RESET, ALE, CS, RD, WR, ADDRESS, DATA);
-    
-    parameter ADDR_WIDTH = 19;
+// Extra Credit
+// 3 State Mealy-FSM based memory or IO module that is compatible with Intel 8088 bus interface
+
+module MemoryOrIOModule (Intel8088Pins bus, input wire CS);
+
+    parameter ADDR_WIDTH = 20;
     parameter DATA_WIDTH = 8;
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
+    parameter INIT_FILE = "memory_init.mem";
+    wire OE, WE, LA;
 
-    input wire CLK;
-    input wire RESET;
-    input wire ALE; // Address Latch Enable
-    input wire CS; // Chip Select. Active high
-    input wire RD; // Read Enable. Active low
-    input wire WR; // Write Enable. Active low
-    input wire [ADDR_WIDTH-1:0] ADDRESS;
-    inout wire [DATA_WIDTH-1:0] DATA;
-
-    // Control signals between ControlSequencer and Datapath
-    wire LA, OE, WE;
-
-    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .INIT_FILE(INIT_FILE)) datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
-    ControlSequencer controlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
+    Datapath #(.ADDR_WIDTH(ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH), .INIT_FILE(INIT_FILE)) datapath (bus.CLK, bus.RESET, bus.Address[ADDR_WIDTH-1:0], bus.Data, LA, OE, WE);
+    ControlSequencer controlSequencer (bus.CLK, bus.RESET, bus.ALE, bus.RD, bus.WR, CS, LA, OE, WE);
 
 endmodule
 
 module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
     
-    parameter ADDR_WIDTH = 19;
+    parameter ADDR_WIDTH = 20;
     parameter DATA_WIDTH = 8;
+    parameter INIT_FILE = "memory_init.mem";
     localparam NUM_UNITS = (1 << ADDR_WIDTH);
-    parameter INIT_FILE = "memory_init.mem"; // File to load initial memory contents
 
     input wire CLK;
     input wire RESET;
@@ -57,14 +49,14 @@ module Datapath (CLK, RESET, ADDRESS, DATA, LA, OE, WE);
 
 endmodule
 
-module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
+module ControlSequencer (CLK, RESET, ALE, RD, WR, CS, LA, OE, WE);
 
     input wire CLK;
     input wire RESET;
     input wire ALE; // Address Latch Enable
-    input wire CS; // Chip Select. Active high
     input wire RD; // Read Enable. Active low
     input wire WR; // Write Enable. Active low
+    input wire CS; // Chip Select. Active high
     output reg LA; // Load Address. To Datapath
     output reg OE; // Output Enable. To Datapath
     output reg WE; // Write Enable. To Datapath
@@ -86,7 +78,7 @@ module ControlSequencer (CLK, RESET, ALE, CS, RD, WR, LA, OE, WE);
 
     always_comb begin
         NextState = State;
-        unique case (State)
+        unique0 case (State)
             INIT: begin
                 if (CS && ALE) begin
                     LA = '1;

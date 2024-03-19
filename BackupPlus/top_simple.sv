@@ -23,14 +23,10 @@ logic DEN;
 
 logic [19:0] Address;
 wire logic [7:0]  Data;
+logic M0_CS, M1_CS, IO0_CS, IO1_CS;
 
-logic M0_CS;
-logic M1_CS;
-logic IO0_CS;
-logic IO1_CS;
-
-// Define address width for memory and I/O devices
-localparam IO_ADDR_WIDTH = 16;
+// Define the number of addressable units for memory modules
+localparam NUM_UNITS_MEMORY = 512 * 1024;
 
 // Define the base addresses and masks for I/O devices
 localparam BASE_ADDR_IO_DEVICE0 = 16'hFF00;
@@ -38,15 +34,19 @@ localparam BASE_ADDR_IO_DEVICE1 = 16'h1C00;
 localparam ADDR_MASK_IO_DEVICE0 = 16'hFFF0; // Mask for ignoring lower 4 bits (0xF)
 localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0x1FF)
 
+// Define the number of addressable units for I/O devices
+localparam NUM_UNITS_IO_DEVICE0 = 16;  // 16 ports for I/O device 0 (0xFF00 - 0xFF0F)
+localparam NUM_UNITS_IO_DEVICE1 = 512; // 512 ports for I/O device 1 (0x1C00 - 0x1DFF)
+
 Intel8088 P(CLK, MNMX, TEST, RESET, READY, NMI, INTR, HOLD, AD, A, HLDA, IOM, WR, RD, SSO, INTA, ALE, DTR, DEN);
 
 // Memory Modules
-MemoryOrIOModule #(.INIT_FILE("memory0_init.mem")) M0 (CLK, RESET, ALE, M0_CS, RD, WR, Address[18:0], Data); // Lower 512 KiB (0x00000 - 0x7FFFF)
-MemoryOrIOModule #(.INIT_FILE("memory1_init.mem")) M1 (CLK, RESET, ALE, M1_CS, RD, WR, Address[18:0], Data); // Upper 512 KiB (0x80000 - 0xFFFFF)
+MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY), .INIT_FILE("memory0_init.mem")) M0 (CLK, RESET, RD, WR, M0_CS, {1'b0,Address[18:0]}, Data); // Lower 512 KiB (0x00000 - 0x7FFFF)
+MemoryOrIOModule #(.NUM_UNITS(NUM_UNITS_MEMORY), .INIT_FILE("memory1_init.mem")) M1 (CLK, RESET, RD, WR, M1_CS, {1'b0,Address[18:0]}, Data); // Upper 512 KiB (0x80000 - 0xFFFFF)
 
 // I/O Devices
-MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device0_init.mem")) IO0 (CLK, RESET, ALE, IO0_CS, RD, WR, Address[15:0], Data); // 16 Ports (0xFF00 - 0xFF0F)
-MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device1_init.mem")) IO1 (CLK, RESET, ALE, IO1_CS, RD, WR, Address[15:0], Data); // 512 Ports (0x1C00 - 0x1DFF)
+MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE0), .NUM_UNITS(NUM_UNITS_IO_DEVICE0), .INIT_FILE("io_device0_init.mem")) IO0 (CLK, RESET, RD, WR, IO0_CS, {4'b0,Address[15:0]}, Data); // 16 Ports (0xFF00 - 0xFF0F)
+MemoryOrIOModule #(.BASE_ADDR(BASE_ADDR_IO_DEVICE1), .NUM_UNITS(NUM_UNITS_IO_DEVICE1), .INIT_FILE("io_device1_init.mem")) IO1 (CLK, RESET, RD, WR, IO1_CS, {4'b0,Address[15:0]}, Data); // 512 Ports (0x1C00 - 0x1DFF)
 
 // 8282 Latch to latch bus address
 always_latch
@@ -78,7 +78,7 @@ begin
     repeat (5) @(posedge CLK);
     RESET = '0;
 
-    repeat(1000) @(posedge CLK);
+    repeat(300) @(posedge CLK);
     $finish();
 end
 

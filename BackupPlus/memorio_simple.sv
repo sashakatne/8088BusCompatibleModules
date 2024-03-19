@@ -1,4 +1,4 @@
-module MemoryOrIOModule (CLK, RESET, CS, RD, WR, ADDRESS, DATA);
+module MemoryOrIOModule (CLK, RESET, RD, WR, CS, ADDRESS, DATA);
     
     parameter ADDR_WIDTH = 20;  // Width of the 8088 address bus
     parameter DATA_WIDTH = 8;   // Width of the 8088 data bus

@@ -1,70 +1,67 @@
 module top;
 
-    // Clock and reset
-    bit CLK = '0;
-    bit RESET = '0; 
-    bit ALE = '0;
-    bit RD = '1;
-    bit WR = '1;
-    bit IOM = '0;
+    bit clock = '0;
+    bit reset = '0;
     bit error_flag = '0;
-
-    // Data and address lines
-    wire logic [19:0] Address;
+    wire M0_CS, M1_CS, IO0_CS, IO1_CS;
+    reg [7:0] DataIn;
     reg [19:0] AddressIn;
 
-    reg [7:0] DataIn;
-    wire logic [7:0] DataBus;
-
-    // Chip selects
-    wire M0_CS;
-    wire M1_CS;
-    wire IO0_CS;
-    wire IO1_CS;
-
-    // Define address width for memory and I/O devices
-    localparam IO_ADDR_WIDTH = 16;
-
-    // Define the base addresses and masks for I/O devices
     localparam BASE_ADDR_IO_DEVICE0 = 16'hFF00;
     localparam BASE_ADDR_IO_DEVICE1 = 16'h1C00;
-    localparam ADDR_MASK_IO_DEVICE0 = 16'hFFF0; // Mask for ignoring lower 4 bits (0xF)
-    localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00; // Mask for ignoring lower 9 bits (0x1FF)
+    localparam ADDR_MASK_IO_DEVICE0 = 16'hFFF0;
+    localparam ADDR_MASK_IO_DEVICE1 = 16'hFE00;
 
-    // Chip select logic for memory modules
-    assign M0_CS = ~IOM & ~AddressIn[19];
-    assign M1_CS = ~IOM & AddressIn[19];
+    Intel8088Pins bus(.CLK(clock), .RESET(reset));
 
-    // Chip select logic for I/O devices
-    assign IO0_CS = IOM & ((AddressIn & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
-    assign IO1_CS = IOM & ((AddressIn & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
+    initial begin
+        bus.HOLD = '0;
+        bus.READY = '1;
+        bus.NMI = '0;
+        bus.INTR = '0;
+        bus.MNMX = '1;
+        bus.TEST = '1;
+        bus.ALE = '0;
+        bus.RD = '1;
+        bus.WR = '1;
+        bus.IOM = '0;
+    end
 
-    // Memory Modules
-    MemoryOrIOModule #(.INIT_FILE("memory0_init.mem")) M0 (CLK, RESET, ALE, M0_CS, RD, WR, AddressIn[18:0], DataBus); // Lower 512 KiB (0x00000 - 0x7FFFF)
-    MemoryOrIOModule #(.INIT_FILE("memory1_init.mem")) M1 (CLK, RESET, ALE, M1_CS, RD, WR, AddressIn[18:0], DataBus); // Upper 512 KiB (0x80000 - 0xFFFFF)
+    MemoryOrIOModule #(.ADDR_WIDTH(19), .INIT_FILE("memory0_init.mem")) M0 (bus.Peripheral, M0_CS); // Lower 512 KiB (0x00000 - 0x7FFFF)
+    MemoryOrIOModule #(.ADDR_WIDTH(19), .INIT_FILE("memory1_init.mem")) M1 (bus.Peripheral, M1_CS); // Upper 512 KiB (0x80000 - 0xFFFFF)
+    MemoryOrIOModule #(.ADDR_WIDTH(16), .INIT_FILE("io_device0_init.mem")) IO0 (bus.Peripheral, IO0_CS); // 16 Ports (0xFF00 - 0xFF0F)
+    MemoryOrIOModule #(.ADDR_WIDTH(16), .INIT_FILE("io_device1_init.mem")) IO1 (bus.Peripheral, IO1_CS); // 512 Ports (0x1C00 - 0x1DFF)
 
-    // I/O Devices
-    MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device0_init.mem")) IO0 (CLK, RESET, ALE, IO0_CS, RD, WR, AddressIn[15:0], DataBus); // 16 Ports (0xFF00 - 0xFF0F)
-    MemoryOrIOModule #(.ADDR_WIDTH(IO_ADDR_WIDTH), .INIT_FILE("io_device1_init.mem")) IO1 (CLK, RESET, ALE, IO1_CS, RD, WR, AddressIn[15:0], DataBus); // 512 Ports (0x1C00 - 0x1DFF)
+    // 8282 Latch to latch bus address
+    always_latch begin
+        if (bus.ALE)
+            bus.Address <= AddressIn;
+    end
 
     // Tristate buffer for bidirectional Data bus
-    assign DataBus = WR ? 'z : DataIn;
-    assign Address = ALE ? AddressIn : 'z;
+    assign bus.Data = bus.WR ? 'z : DataIn;
+
+    // Chip select logic for memory modules
+    assign M0_CS = ~bus.IOM & ~bus.Address[19];
+    assign M1_CS = ~bus.IOM & bus.Address[19];
+
+    // Chip select logic for I/O devices
+    assign IO0_CS = bus.IOM & ((bus.Address[15:0] & ADDR_MASK_IO_DEVICE0) == BASE_ADDR_IO_DEVICE0);
+    assign IO1_CS = bus.IOM & ((bus.Address[15:0] & ADDR_MASK_IO_DEVICE1) == BASE_ADDR_IO_DEVICE1);
 
     // Clock generation
-    always #50 CLK = ~CLK; // 50 MHz clock
+    always #50 clock = ~clock;
 
     // Test sequence
     initial begin
         // Initialize signals
         DataIn = '0;
-        AddressIn = '0;
 
-        // 8088 has a very specific reset sequence
-        repeat (2) @(posedge CLK);
-        RESET = '1;
-        repeat (5) @(posedge CLK);
-        RESET = '0;
+        // Reset sequence
+        repeat (2) @(posedge clock);
+        reset = '1;
+        repeat (5) @(posedge clock);
+        reset = '0;
 
         // Start test sequence
         // Write to memory0
@@ -86,7 +83,7 @@ module top;
         end
 
         // Write to IO device0
-        IOM = '1; // Set I/O control signal
+        bus.IOM = '1; // Set I/O control signal
         // Perform successive writes and reads from IO device0 from 0xFF00 to 0xFF0F (all 16 ports)
         for (int i = 0; i < 16; i++) begin
             WriteOperation(20'h0FF00 + i, 8'h0F + i); // Write 0x0F + i to I/O device 0
@@ -111,16 +108,16 @@ module top;
     // Task for performing write operation
     task WriteOperation(input [19:0] addr, input [7:0] data);
         begin
-            @(negedge CLK);
-            ALE = '1; // Latch address
+            @(negedge clock);
+            bus.ALE = '1; // Latch address
             AddressIn = addr;
-            @(posedge CLK);
-            ALE = '0;
-            @(negedge CLK);
+            @(posedge clock);
+            bus.ALE = '0;
+            @(negedge clock);
             DataIn = data;
-            WR = '0; // Start write operation
-            repeat (3) @(posedge CLK);
-            WR = '1; // End write operation
+            bus.WR = '0; // Start write operation
+            repeat (3) @(posedge clock);
+            bus.WR = '1; // End write operation
         end
     endtask
 
@@ -128,16 +125,16 @@ module top;
     task ReadOperation(input [19:0] addr, input [7:0] expected_data);
         reg [7:0] read_data;
         begin
-            @(negedge CLK);
-            ALE = '1; // Latch address
+            @(negedge clock);
+            bus.ALE = '1; // Latch address
             AddressIn = addr;
-            @(posedge CLK);
-            ALE = '0;
-            RD = '0; // Start read operation
-            repeat (2) @(posedge CLK);
-            read_data = DataBus; // Capture data from the bus
-            RD = '1; // End read operation
-            @(posedge CLK);
+            @(posedge clock);
+            bus.ALE = '0;
+            bus.RD = '0; // Start read operation
+            repeat (2) @(posedge clock);
+            read_data = bus.Data; // Capture data from the bus
+            bus.RD = '1; // End read operation
+            @(posedge clock);
 
             // Check if the read data matches expected data
             if(read_data !== expected_data) begin
@@ -146,5 +143,4 @@ module top;
             end
         end
     endtask
-
 endmodule
