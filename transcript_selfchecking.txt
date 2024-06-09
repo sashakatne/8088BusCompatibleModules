@@ -1,0 +1,183 @@
+# transcript1.txt
+do run.do
+# QuestaSim-64 vlog 2023.3 Compiler 2023.07 Jul 17 2023
+# Start time: 10:00:24 on Jun 09,2024
+# vlog -reportprogress 300 "+acc" -source -lint interface.sv 
+# -- Compiling interface Intel8088Pins
+# 
+# Top level modules:
+# 	--none--
+# End time: 10:00:24 on Jun 09,2024, Elapsed time: 0:00:00
+# Errors: 0, Warnings: 0
+# QuestaSim-64 vlog 2023.3 Compiler 2023.07 Jul 17 2023
+# Start time: 10:00:24 on Jun 09,2024
+# vlog -reportprogress 300 "+acc" -source -lint memorio.sv memorio_tb.sv 
+# -- Compiling module MemoryOrIOModule
+# -- Compiling module Datapath
+# -- Compiling module ControlSequencer
+# -- Compiling module top
+# 
+# Top level modules:
+# 	top
+# End time: 10:00:25 on Jun 09,2024, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 0
+# QuestaSim-64 vopt 2023.3 Compiler 2023.07 Jul 17 2023
+# ** Warning: (vopt-10587) Some optimizations are turned off because the +acc switch is in effect. This will cause your simulation to run slowly. Please use -access/-debug to maintain needed visibility.
+# Start time: 10:00:25 on Jun 09,2024
+# vopt -reportprogress 300 top -o top_optimized "+acc" "+cover=sbfec+MemoryOrIOModule(rtl)." 
+# 
+# Top level modules:
+# 	top
+# 
+# Analyzing design...
+# -- Loading module top
+# -- Loading interface Intel8088Pins
+# -- Loading module MemoryOrIOModule
+# -- Loading module Datapath
+# -- Loading module ControlSequencer
+# Optimizing 12 design-units (inlining 0/14 module instances):
+# -- Optimizing module top(fast)
+# -- Optimizing module ControlSequencer(fast)
+# ** Note: (vopt-143) Recognized 1 FSM in module "ControlSequencer(fast)".
+# -- Optimizing module Datapath(fast)
+# -- Optimizing module Datapath(fast__2)
+# -- Optimizing module Datapath(fast__1)
+# -- Optimizing module Datapath(fast__3)
+# -- Optimizing module MemoryOrIOModule(fast__3)
+# -- Optimizing module MemoryOrIOModule(fast__2)
+# -- Optimizing module MemoryOrIOModule(fast__1)
+# -- Optimizing module MemoryOrIOModule(fast)
+# -- Optimizing interface Intel8088Pins(fast__1)
+# -- Optimizing interface Intel8088Pins(fast)
+# Optimized design name is top_optimized
+# End time: 10:00:27 on Jun 09,2024, Elapsed time: 0:00:02
+# Errors: 0, Warnings: 1
+# 
+# 
+# 
+# Quitting now!
+# 
+# 
+# 
+# End time: 10:00:29 on Jun 09,2024, Elapsed time: 0:02:43
+# Errors: 0, Warnings: 2
+# vsim top_optimized -coverage 
+# Start time: 10:00:29 on Jun 09,2024
+# Loading sv_std.std
+# Loading work.top(fast)
+# Loading work.Intel8088Pins(fast__1)
+# Loading work.MemoryOrIOModule(fast)
+# Loading work.Datapath(fast)
+# Loading work.ControlSequencer(fast)
+# Loading work.MemoryOrIOModule(fast__1)
+# Loading work.Datapath(fast__1)
+# Loading work.MemoryOrIOModule(fast__2)
+# Loading work.Datapath(fast__2)
+# Loading work.MemoryOrIOModule(fast__3)
+# Loading work.Datapath(fast__3)
+# 1
+# *** PASSED ***
+# ** Note: $finish    : memorio_tb.sv(109)
+#    Time: 2061450 ns  Iteration: 1  Instance: /top
+# 1
+# Break in Module top at memorio_tb.sv line 109
+# QuestaSim-64 vcover 2023.3 Coverage Utility 2023.07 Jul 17 2023
+# Start time: 10:00:36 on Jun 09,2024
+# vcover report memorio.ucdb 
+# Coverage Report Summary Data by instance
+# 
+# =================================================================================
+# === Instance: /top/M0/datapath
+# === Design Unit: work.Datapath
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                         6         6         0   100.00%
+#     Statements                       5         5         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/M0/controlSequencer
+# === Design Unit: work.ControlSequencer
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                        18        18         0   100.00%
+#     Conditions                       2         2         0   100.00%
+#     FSM States                       5         5         0   100.00%
+#     FSM Transitions                  9         6         3    66.66%
+#     Statements                      15        15         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/M1/datapath
+# === Design Unit: work.Datapath
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                         6         6         0   100.00%
+#     Statements                       5         5         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/M1/controlSequencer
+# === Design Unit: work.ControlSequencer
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                        18        18         0   100.00%
+#     Conditions                       2         2         0   100.00%
+#     FSM States                       5         5         0   100.00%
+#     FSM Transitions                  9         6         3    66.66%
+#     Statements                      15        15         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/IO0/datapath
+# === Design Unit: work.Datapath
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                         6         6         0   100.00%
+#     Statements                       5         5         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/IO0/controlSequencer
+# === Design Unit: work.ControlSequencer
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                        18        18         0   100.00%
+#     Conditions                       2         2         0   100.00%
+#     FSM States                       5         5         0   100.00%
+#     FSM Transitions                  9         6         3    66.66%
+#     Statements                      15        15         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/IO1/datapath
+# === Design Unit: work.Datapath
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                         6         6         0   100.00%
+#     Statements                       5         5         0   100.00%
+# 
+# =================================================================================
+# === Instance: /top/IO1/controlSequencer
+# === Design Unit: work.ControlSequencer
+# =================================================================================
+#     Enabled Coverage              Bins      Hits    Misses  Coverage
+#     ----------------              ----      ----    ------  --------
+#     Branches                        18        18         0   100.00%
+#     Conditions                       2         2         0   100.00%
+#     FSM States                       5         5         0   100.00%
+#     FSM Transitions                  9         6         3    66.66%
+#     Statements                      15        15         0   100.00%
+# 
+# 
+# Total Coverage By Instance (filtered view): 93.33%
+# 
+# End time: 10:00:36 on Jun 09,2024, Elapsed time: 0:00:00
+# Errors: 0, Warnings: 0
+# QuestaSim-64 vcover 2023.3 Coverage Utility 2023.07 Jul 17 2023
+# Start time: 10:00:36 on Jun 09,2024
+# vcover report memorio.ucdb -cvg -details 
+# ** Note: (vcover-17388) No matching coverage data found in file 'memorio.ucdb'.
+# End time: 10:00:36 on Jun 09,2024, Elapsed time: 0:00:00
+# Errors: 0, Warnings: 0
