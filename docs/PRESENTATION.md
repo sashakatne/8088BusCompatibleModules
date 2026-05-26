@@ -4,13 +4,49 @@ theme: default
 paginate: true
 footer: '8088 Bus-Compatible Memory & I/O — Sasha Katne · PSU ECE'
 style: |
-  section { font-size: 24px; }
-  section.lead { text-align: center; }
+  section {
+    font-size: 22px;
+    padding: 45px 60px 75px;
+  }
+  section.lead {
+    text-align: center;
+    justify-content: center;
+  }
+  section.lead ul {
+    text-align: left;
+    display: inline-block;
+    margin: 0 auto;
+  }
   h1 { color: #1a3a6e; }
-  h2 { color: #1a3a6e; border-bottom: 2px solid #d6e8ff; padding-bottom: 4px; }
-  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
-  pre { font-size: 18px; }
-  table { font-size: 20px; }
+  h2 {
+    color: #1a3a6e;
+    border-bottom: 2px solid #d6e8ff;
+    padding-bottom: 4px;
+    margin-top: 0;
+    margin-bottom: 0.4em;
+  }
+  h3 {
+    color: #1a3a6e;
+    margin-top: 0.55em;
+    margin-bottom: 0.25em;
+  }
+  code {
+    background: #f4f4f4;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  pre {
+    font-size: 15px;
+    line-height: 1.35;
+    margin: 0.4em 0;
+  }
+  table {
+    font-size: 17px;
+    margin: 0.4em 0;
+  }
+  ul, ol { margin: 0.3em 0; }
+  li { margin: 0.1em 0; }
+  p { margin: 0.4em 0; }
 ---
 
 <!-- _class: lead -->
@@ -42,11 +78,13 @@ This project models the **peripheral side** — two 512 KB memory banks and two 
 
 ## System Architecture
 
-![w:900 Intel 8088 with Memory and I/O](images/8088_Computer.jpg)
+![bg right:48% fit](images/8088_Computer.jpg)
 
 - **1 RTL module → 4 instances** (parameterized address width + init file)
 - Chip-select decode happens in top-level wiring, not inside the module
 - 8282 latch and 8286 transceiver are modeled behaviorally at the top level
+- The 8088 multiplexes `AD[7:0]` (address+data); `A[19:8]` are non-multiplexed
+- `IOM` chooses memory vs. I/O space; `ALE` strobes the address latch
 
 ---
 
@@ -97,22 +135,19 @@ end
 
 ## FSM Design — Moore (5 states)
 
-![w:380 Moore FSM](images/MooreFSM.jpg)
+![bg right:38% fit](images/MooreFSM.jpg)
 
-```
-INIT ─(CS && ALE)─► LOAD_ADDR ─(!RD)─► READ  ─► WAIT ─► INIT
-                              ─(!WR)─► WRITE ─► WAIT ─► INIT
-```
-
-| State | LA | OE | WE | Meaning |
+| State       | LA | OE | WE | Meaning |
 |---|:--:|:--:|:--:|---|
-| INIT       | 0 | 0 | 0 | Idle; arm on `CS && ALE` |
-| LOAD_ADDR  | 1 | 0 | 0 | Capture address into register |
-| READ       | 0 | 1 | 0 | Drive `Data` from `MEM[ADDR_REG]` |
-| WRITE      | 0 | 0 | 1 | Capture `Data` into `MEM[ADDR_REG]` |
-| WAIT       | 0 | 0 | 0 | One-cycle settle before re-arming |
+| `INIT`      | 0 | 0 | 0 | Idle; arm on `CS && ALE` |
+| `LOAD_ADDR` | 1 | 0 | 0 | Capture address into register |
+| `READ`      | 0 | 1 | 0 | Drive `Data` from `MEM[ADDR_REG]` |
+| `WRITE`     | 0 | 0 | 1 | Capture `Data` into `MEM[ADDR_REG]` |
+| `WAIT`      | 0 | 0 | 0 | One-cycle settle before re-arming |
 
-A **Mealy variant** (`rtl/memorio_mealy.sv`) implements the same behavior in **3 states** — both pass the verification suite.
+- Diagram labels it `IDLE`; the RTL enum names it `INIT` (`rtl/memorio.sv:63`)
+- Flow: `CS && ALE` → `LOAD_ADDR` → (`!RD` → `READ` \| `!WR` → `WRITE`) → `WAIT` → `INIT`
+- **Mealy variant** (`rtl/memorio_mealy.sv`) — same behavior in 3 states; both pass verification
 
 ---
 
@@ -139,8 +174,6 @@ assign bus.Data = ( bus.DTR & ~bus.DEN) ? bus.AD   : 'z;
 assign bus.AD   = (~bus.DTR & ~bus.DEN) ? bus.Data : 'z;
 ```
 
-External glue modeled at top level — no extra modules.
-
 ---
 
 ## Verification — Two Independent Paths
@@ -151,7 +184,7 @@ External glue modeled at top level — no extra modules.
   ```
   12 M W 0x33333    # at sim-time 12, memory write to 0x33333
   ```
-- **Proof:** reaches `$finish` after 300 clocks; waveforms align with the 8088 timing diagram in `docs/images/wr_rd_timing.jpg`
+- **Proof:** reaches `$finish` after 300 clocks; waveforms align with `docs/images/wr_rd_timing.jpg`
 
 ### Path 2: Self-checking testbench (`tb/memorio_tb.sv`)
 - Authored directed stimulus + golden expected values
@@ -203,22 +236,27 @@ $display(Error ? "*** FAILED ***" : "*** PASSED ***");
 | Statements       | 15 / 15 (100%) |
 | **Aggregate (by instance)** | **93.33%** |
 
-### Tracked evidence
-`docs/sim_evidence/` — transcripts, UCDBs, MANIFEST.txt, and PNG waveforms regenerable from the farm via `vsim -view`.
+Evidence tracked in `docs/sim_evidence/` — transcripts, UCDBs, MANIFEST, PNG waveforms.
 
 ---
 
 ## Engineering Insight #1 — Combinational Decode Hazard
 
-The matplotlib waveform shows narrow glitch pulses on `M0_CS` / `M1_CS` between bus operations.
+Narrow glitch pulses on `M0_CS` / `M1_CS` between bus operations, plus a brief `M0_CS` blip during an I/O cycle:
 
-![w:900 Glitch waveform](sim_evidence/waveforms/waveform_config1_moore_iptb.png)
+![w:880](sim_evidence/waveforms/waveform_config1_moore_iptb.png)
 
-**Root cause:** CS decode is pure combinational on `IOM` and `Address`. `Address` is fed by a **level-sensitive 8282 latch** — transparent while `ALE` is high. Both inputs change in successive delta cycles, so the decoder fires every intermediate combination.
+---
 
-**Why it's harmless:** the FSM is clocked. CS is only sampled at `posedge CLK` when in `INIT`. Self-checking TB passes with zero mismatch errors against the same decoder → empirical proof.
+## Insight #1 — Why It Happens, Why It's Harmless
 
-**Why I left it alone:** faithful to the canonical 74LS373 / 8282 reference topology. Registering CS would add a clock of latency without functional benefit.
+**Root cause:** CS decode is **pure combinational** on `IOM` and `Address`. `Address` is fed by a level-sensitive 8282 latch — transparent while `ALE` is high. Both inputs change in successive delta cycles, so the decoder fires on every intermediate combination.
+
+**Why it's harmless:** the FSM is **clocked**. CS is only sampled at `posedge CLK` when the controller is in `INIT`. Self-checking TB passes with zero data-mismatch errors against the **same** decoder → empirical proof that the hazard is filtered by the flip-flop.
+
+**Why I left it alone:** the topology is faithful to the canonical 74LS373 / 8282 reference design. Registering CS would add a clock of latency without functional benefit. The right place to filter is the FSM that consumes CS, which already does the job.
+
+**Engineering takeaway:** combinational decoders driven through transparent latches will *always* glitch during the transparent window — verify functionality with clocked tests, not by visual waveform inspection.
 
 ---
 
@@ -237,7 +275,7 @@ After repo reorganization, I ran the full suite on the PSU ECE farm to verify no
 + vlib work
 ```
 
-**Lesson:** local "it ran clean" masked a real defect because my local repo was a fresh checkout with no stale library. The project's verification gate — **"Errors: 0, Warnings: 0"** — plus remote-farm rerun caught what casual single-host testing missed.
+**Lesson:** local "it ran clean" masked a real defect because my local repo was a fresh checkout with no stale library. The project's verification gate — **"Errors: 0, Warnings: 0"** — plus a remote-farm rerun caught what casual single-host testing missed.
 
 ---
 
@@ -247,43 +285,32 @@ After repo reorganization, I ran the full suite on the PSU ECE farm to verify no
 - **QuestaSim 2021.3_1** — `vlog` / `vopt` / `vsim` / `vcover` toolchain
 - Coverage scoped to `+cover=sbfec+MemoryOrIOModule(rtl).` — DUT only, not the testbench harness
 
-### Remote verification pipeline (PSU ECE farm)
-- SSH alias `katnemo` → `mo.ece.pdx.edu`
-- Per-run isolation: `~/claude-runs/<UTC-stamp>_<slug>/`
-- Every run logs `MANIFEST.txt` with command, start/end UTC, pass verdict, caveats
-
 ### Evidence-as-code
-- `docs/sim_evidence/` is **tracked** in git: transcripts, UCDBs, PNG waveforms
+- `docs/sim_evidence/` **tracked** in git: transcripts, UCDBs, PNG waveforms
 - Source `.wlf` / `.vcd` files intentionally **not** committed (large, regenerable)
-- A reviewer can read a known-good baseline without re-running the sim
 
 ### Custom tooling
-- `scripts/memfilegenerator.py` — generates 3.4 MB of random `.mem` init files
-- `scripts/vcd_to_png.py` — matplotlib-based VCD renderer (handles single multi-bit and bit-blasted bus encodings)
+- `scripts/memfilegenerator.py` — generates 3.4 MB of random `.mem` init
+- `scripts/vcd_to_png.py` — matplotlib VCD renderer (single multi-bit + bit-blasted)
 
 ---
 
-## Summary
+## Summary — What This Project Demonstrates
 
-### What this project demonstrates
-- **SystemVerilog idioms:** `interface` + `modport`, `always_ff`/`always_comb`/`always_latch`, parameterized modules, typed enums for FSM state, tasks for BFM stimulus
-- **Bus-protocol modeling:** 8088 multiplexed AD bus, 8282 address latch, 8286 data transceiver, `IOM` / `RD` / `WR` sequencing
+- **SystemVerilog idioms:** `interface` + `modport`, `always_ff` / `always_comb` / `always_latch`, parameterized modules, typed FSM enums, BFM tasks
+- **Bus-protocol modeling:** 8088 multiplexed AD bus, 8282 latch, 8286 transceiver, `IOM` / `RD` / `WR` sequencing
 - **FSM design:** Moore (5 states) **and** Mealy (3 states) variants of the same controller; both verified
-- **Verification rigor:** dual-path verification (encrypted IP + self-checking BFM), coverage scoping, tracked sim evidence
+- **Verification rigor:** dual-path verification (encrypted IP + self-checking BFM), instance-scoped coverage, tracked sim evidence committed alongside code
 - **Engineering discipline:** caught a real `run.do` defect via remote re-verification; documented a non-obvious combinational hazard rather than hiding it
 
-### Key files
-- `rtl/memorio.sv` · `rtl/memorio_mealy.sv` · `rtl/interface.sv`
-- `tb/top_interface.sv` · `tb/memorio_tb.sv`
-- `scripts/run.do` · `scripts/memfilegenerator.py` · `scripts/vcd_to_png.py`
+**Key files:** `rtl/memorio.sv` · `rtl/memorio_mealy.sv` · `rtl/interface.sv` · `tb/top_interface.sv` · `tb/memorio_tb.sv` · `scripts/run.do`
 
 ---
 
-<!-- _class: lead -->
-
-# Questions?
+## Questions?
 
 Happy to go deep on:
+
 - FSM design tradeoffs (Moore vs. Mealy here)
 - Verification strategy and coverage scoping
 - The chip-select glitch hazard
