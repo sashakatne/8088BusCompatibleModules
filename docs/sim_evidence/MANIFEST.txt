@@ -68,3 +68,20 @@ Waveforms (PNG only, matplotlib-rendered, 7 us window):
 
   Pre-reorg reference waveform screenshots from the original Questa GUI
   remain in docs/images/wave1..4_*.jpg for visual comparison.
+
+Known waveform artifacts (not bugs):
+  - Narrow glitch pulses on M0_CS / M1_CS between bus operations, and a
+    brief M0_CS blip near 2900 ns during an I/O cycle (visible in
+    waveform_config1_moore_iptb.png), are combinational decoder hazards
+    on the chip-select equations in tb/top_interface.sv:42-47.
+    bus.IOM and bus.Address are both inputs to the pure-combinational
+    decode, and both change in successive delta cycles while ALE is
+    high and the 8282 latch is transparent.
+  - These are filtered functionally because ControlSequencer
+    (rtl/memorio.sv:90-98) samples CS only at the posedge CLK when in
+    INIT, so intra-cycle glitches are absorbed by the flip-flop.
+  - Empirical confirmation: configurations 2 and 4 (self-checking TB
+    against the same decoder) end in '*** PASSED ***' with zero
+    'Error: Read data ... does not match ...' lines.
+  - See README.md, section "Chip-Select Glitches: A Combinational
+    Decode Hazard", for the full analysis.

@@ -129,3 +129,45 @@ vsim -c -do "do scripts/run.do; quit -f" | tee sim/transcript
 
 ### Lower I/O Write/Read Operations
 ![Lower I/O Write/Read Operations](docs/images/wave4_lowerio_wr_rd_ops.jpg)
+
+## Chip-Select Glitches: A Combinational Decode Hazard
+
+The matplotlib rendering at `docs/sim_evidence/waveforms/waveform_config1_moore_iptb.png` shows narrow glitch pulses on `M0_CS` and `M1_CS` between bus operations, plus a brief upward blip on `M0_CS` near 2900 ns during an I/O cycle. These are **not bugs** — they are a textbook combinational-decoder hazard exposed by the 8282-latch + combinational-decode topology used here.
+
+![Chip-Select Glitches in the Moore + Encrypted-IP run](docs/sim_evidence/waveforms/waveform_config1_moore_iptb.png)
+
+### Why they appear
+
+The chip-select decoder in `tb/top_interface.sv:42-47` is purely combinational and depends on two inputs that change in successive delta cycles during the address phase (T1):
+
+```verilog
+assign M0_CS  = ~bus.IOM & ~bus.Address[19];
+assign M1_CS  = ~bus.IOM &  bus.Address[19];
+assign IO0_CS =  bus.IOM & ((bus.Address[15:0] & 16'hFFF0) == 16'hFF00);
+assign IO1_CS =  bus.IOM & ((bus.Address[15:0] & 16'hFE00) == 16'h1C00);
+```
+
+`bus.IOM` is redriven by the 8088 at the boundary between memory and I/O operations. `bus.Address[19:0]` is fed by the level-sensitive 8282-latch model in the same file:
+
+```verilog
+always_latch begin
+    if (bus.ALE)
+        bus.Address <= {bus.A, bus.AD};
+end
+```
+
+While ALE is high the latch is transparent — `bus.Address` flows through directly from `{A, AD}` as the 8088 drives the new address. The decoder sees every intermediate `(IOM, Address[19], Address[15:0])` combination and fires a narrow pulse on whichever CS that transient combination happens to select. The ~2900 ns `M0_CS` blip is one example: the address was transitioning to `0xFF420` (an I/O port), and for one delta cycle `Address[19]` was still showing the previous memory-cycle value while `IOM` had already settled low, making `~IOM & ~Address[19]` momentarily true.
+
+### Why they are harmless
+
+The `ControlSequencer` FSM in `rtl/memorio.sv:90-98` is clocked, and CS only matters at the `posedge CLK` when the FSM is in `INIT`:
+
+```verilog
+INIT: if (CS && ALE) NextState = LOAD_ADDR;
+```
+
+The 8088 bus protocol guarantees CS is stable around the rising clock edge that captures the `INIT -> LOAD_ADDR` transition, so intra-cycle glitches are filtered out by the flip-flop. The self-checking testbench (configurations 2 and 4) passes with zero data-mismatch errors against the same decoder — that is the empirical proof that the FSM-level clocking discipline is the hazard filter.
+
+### Design takeaway
+
+A combinational decoder is faithful to the Intel 8088 reference design: the 74LS373 / 8282 latch is intentionally level-sensitive, and CS is conventionally qualified by ALE or RD/WR at the *consumer* (the FSM), not at the decoder. Registering CS would add a clock of latency without functional benefit, so the cosmetic glitches are accepted as the price of matching the canonical topology. The lesson: combinational decoders driven through transparent latches will *always* glitch during the transparent window — verify functionality with clocked tests, not by visual waveform inspection.
