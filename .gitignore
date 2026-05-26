@@ -1,0 +1,43 @@
+# Agent-local docs
+CLAUDE.md
+
+# QuestaSim / ModelSim runtime artifacts
+work/
+*.ucdb
+*.wlf
+*.vcd
+dump.vcd
+transcript
+transcript[0-9]*.txt
+modelsim.ini
+vsim.dbg
+vsim.wlf
+.qwave.db
+# Exception: simulation evidence committed alongside code changes.
+# Only PNG waveform renderings are tracked under waveforms/; the source
+# .wlf / .vcd files and intermediate timing text are regenerable and live
+# only on the farm or locally for inspection.
+!docs/sim_evidence/*.ucdb
+!docs/sim_evidence/transcript_*.txt
+!docs/sim_evidence/waveforms/*.png
+
+# Generated memory initialization files
+# - Anchored at root in case someone runs the generator from the wrong cwd
+# - sim/ is the canonical location (memfilegenerator.py writes there)
+# - archive/**/*.mem stays tracked because it was committed historically
+/*.mem
+sim/*.mem
+
+# Stimulus files copied into sim/ at simulation start (by run.do)
+sim/busops.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~

@@ -1,24 +1,31 @@
-# Random Memory init file generator for the memory and I/O devices 
-# with specified width and number of units
+# Random memory init file generator for the memory and I/O devices.
+# Writes into <repo>/sim/ regardless of cwd, so it can be invoked from anywhere:
+#     python scripts/memfilegenerator.py
 
 import random
+from pathlib import Path
 
 mem_address_width = 19
 io_address_width = 16
 num_units_mem = 2**mem_address_width
-# num_units_io0 = 16
-# num_units_io1 = 512
 num_units_io0 = 2**io_address_width
 num_units_io1 = 2**io_address_width
 data_width = 8
 
+OUT_DIR = Path(__file__).resolve().parent.parent / "sim"
+
+
 def generate_memory_file(filename, num_units, data_width):
-    with open(filename, 'w') as file:
+    path = OUT_DIR / filename
+    with open(path, "w") as file:
         for _ in range(num_units):
             value = random.randint(0, 2**data_width - 1)
-            file.write(f"{value:02X}\n")  # Write the value in hex format
+            file.write(f"{value:02X}\n")
 
+
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 generate_memory_file("memory0_init.mem", num_units_mem, data_width)
 generate_memory_file("memory1_init.mem", num_units_mem, data_width)
 generate_memory_file("io_device0_init.mem", num_units_io0, data_width)
 generate_memory_file("io_device1_init.mem", num_units_io1, data_width)
+print(f"Wrote 4 memory init files to {OUT_DIR}")
