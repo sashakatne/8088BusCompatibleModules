@@ -1,0 +1,70 @@
+Run identifier:   2026-05-26T03-10-22Z_8088-reorg-verify
+Source host:      Yashaswis-MacBook-Air.local -> mo.ece.pdx.edu via katnemo alias
+Source rev:       f13ae1ea601e790cff8e74d1f1e5242a21322869 (local working tree)
+Local source:     /Users/sashakatne/myprojects/8088BusCompatibleModules
+Remote rundir:    /u/katne/claude-runs/2026-05-26T03-10-22Z_8088-reorg-verify
+Questa version:   2021.3_1
+License:          1717@mentor-lic.cecs.pdx.edu
+
+Purpose: verify the rtl/ tb/ ip/ stimulus/ scripts/ docs/ sim/ reorganization
+did not break any of the four configurations of scripts/run.do.
+
+Configurations run:
+  config1_moore_iptb         scripts/run.do          Moore FSM + encrypted 8088 IP
+  config2_moore_selfcheck    scripts/run_config2.do  Moore FSM + self-checking testbench
+  config4_mealy_selfcheck    scripts/run_config4.do  Mealy FSM + self-checking testbench
+  (config3_mealy_iptb skipped — silent verdict same shape as config1)
+
+Findings:
+  - All three configurations finish cleanly. Every vlog/vopt verdict row
+    reads 'Errors: 0, Warnings: 0'.
+  - config2 and config4 both end with '*** PASSED ***' and zero
+    'Error: Read data ... does not match ...' lines (sweeps 1024+1024
+    memory ops + 16+512 I/O ops per direction).
+  - config1 reaches $finish from ../tb/top_interface.sv(65) after
+    300 clock cycles, confirming the encrypted IP elaborates and
+    consumes ../stimulus/busops.txt via the cwd-relative file copy
+    that run.do stages.
+  - Coverage at 93.33% by instance (5/5 FSM states, 6/9 FSM transitions,
+    15/15 statements) for the default Moore+IP run.
+
+Caught and fixed during this run:
+  - Initial scripts/run.do had 'catch {vdel -all}' BEFORE 'cd sim'. That
+    targeted a non-existent work/ in the parent directory and left the
+    sim/work/ from the previous run untouched, triggering a 'vlib-34
+    Library already exists' warning on rerun. Fixed by reordering:
+        cd sim
+        catch {vdel -all}
+        vlib work
+
+Reproduce:
+  cd ~/claude-runs/2026-05-26T03-10-22Z_8088-reorg-verify
+  export PATH=/pkgs/mentor/questa/2021.3_1/questasim/bin:$PATH
+  export MGLS_LICENSE_FILE=1717@mentor-lic.cecs.pdx.edu
+  export MTI_VCO_MODE=64
+  python3 scripts/memfilegenerator.py
+  vsim -c -do 'do scripts/run.do; quit -f'           # config 1
+  vsim -c -do 'do scripts/run_config2.do; quit -f'   # config 2
+  vsim -c -do 'do scripts/run_config4.do; quit -f'   # config 4
+
+Waveforms (PNG only, matplotlib-rendered, 7 us window):
+  docs/sim_evidence/waveforms/waveform_config1_moore_iptb.png       96 KB
+  docs/sim_evidence/waveforms/waveform_config2_moore_selfcheck.png  94 KB
+  docs/sim_evidence/waveforms/waveform_config4_mealy_selfcheck.png  95 KB
+
+  Signals shown: clock, reset, bus.{ALE, RD, WR, IOM}, bus.Address[19:0]
+  (hex), bus.Data[7:0] (hex), and the four chip-selects (M0_CS, M1_CS,
+  IO0_CS, IO1_CS). The two bus signals are rendered as labeled hex
+  envelopes so the exact address/data sequence is readable.
+
+  Source .wlf / .vcd files were intentionally NOT committed; they are
+  large, tool-specific (Questa for .wlf, GTKWave for .vcd), and
+  regenerable. They live on the farm at
+      ~/claude-runs/2026-05-26T03-10-22Z_8088-reorg-verify/sim/vsim_*.wlf
+  for inspection in Questa via `vsim -view <file>`. To regenerate the
+  PNGs from any .vcd (after a fresh wlf2vcd conversion):
+      python3 scripts/vcd_to_png.py <input.vcd> <output.png> [t_max_ns]
+  Default window is 7000 ns; matplotlib must be available.
+
+  Pre-reorg reference waveform screenshots from the original Questa GUI
+  remain in docs/images/wave1..4_*.jpg for visual comparison.
