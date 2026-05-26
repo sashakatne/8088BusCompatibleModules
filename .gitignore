@@ -41,3 +41,10 @@ __pycache__/
 Thumbs.db
 *.swp
 *~
+
+# Presentation build artifacts
+# - The Marp markdown source (docs/PRESENTATION.md) is the canonical file.
+# - The exported PDF (docs/PRESENTATION.pdf) is tracked as a recruiter-
+#   facing read-only artifact, but the PPTX is the local editable working
+#   copy — regenerable via `npx @marp-team/marp-cli docs/PRESENTATION.md --pptx`.
+docs/*.pptx
