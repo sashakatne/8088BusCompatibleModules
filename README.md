@@ -1,5 +1,12 @@
 # Intel 8088 Interface Simulation
 
+## For reviewers (30-second read)
+
+- **What I wrote:** parameterized SystemVerilog memory/IO peripherals in two FSM styles (5-state Moore and 3-state Mealy), SV interfaces with modports, address decode and chip selects for two 512 KiB memories and two IO devices, and a self-checking testbench. The Intel 8088 processor itself is a supplied, encrypted vendor model (`ip/8088if.svp`).
+- **Results:** the testbench runs 1,024 write/read pairs per memory plus full sweeps of both IO port ranges. Both FSM variants end in `*** PASSED ***` with zero data mismatches.
+- **Coverage, honestly:** statements, branches, and FSM states are at 100%. FSM transitions reach 6 of 9 (66.66%) for Moore and 3 of 4 (75%) for Mealy. The missed transitions have not been analyzed yet, so the 93.33% aggregate overstates FSM coverage.
+- **Limits:** a solo Winter 2024 course project, re-run on the PSU farm in May 2026. There are no SVA assertions or functional covergroups.
+
 The project for the "Introduction to SystemVerilog" course is centered around gaining a comprehensive understanding of the Intel 8088 microprocessor, including how it interfaces with memory and I/O peripherals. The practical component of the course involves modeling these interactions using SystemVerilog, with a focus on the `memorio` module, which emulates memory or I/O modules that communicate with the Intel 8088 bus. This project is not only an exercise in SystemVerilog programming but also an exploration into the inner workings of a fundamental piece of computing history.
 
 Understanding the Intel 8088's operation and its interfacing with memory and I/O peripherals is pivotal for grasping the foundational concepts of microprocessor functionality. Through this project, we will learn how data flows between the processor and various peripheral devices, which is crucial for both historical knowledge and modern computing applications. The significance of the project lies in its ability to bridge the gap between theoretical knowledge and practical skillset, as we model these interactions using the powerful SystemVerilog language.
